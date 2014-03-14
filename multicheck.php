@@ -1,10 +1,11 @@
 #!/usr/bin/php
 <?php
 
-define('CLI_SCRIPT', true);
+define('CLI_SCRIPT', true); //requiring moodle config needs this.
 
 if (isset($_SERVER['REQUEST_METHOD'])) { echo "This script cannot be called from a browser<BR>\n"; exit; }
-$GLOBALS['lockfile'] = "./.multicheck.lock";
+//allow script to run on different set while earlier scripts wait for timeouts etc in buffer (timelinkchecked is updated upon buffer filling)
+$GLOBALS['lockfile'] = "./.multicheck.lock.".rand(1,3);
 declare(ticks = 1);
 
 // setup signal handlers
@@ -39,7 +40,7 @@ if (file_exists($lockfile)) {
 } 
 
 $overallstarttime = microtime(true);
-require_once("../../config.php");
+require_once("../../../config.php");
 
 error_reporting(E_ALL);
 ini_set('display_errors','On');
@@ -49,12 +50,9 @@ echo "\n\nStarting...\n";
 $GLOBALS['sitebuffer'] = Array();
 $GLOBALS['sitesrunning'] = Array();
 $GLOBALS['sitebufferlimit'] = 30;
-$GLOBALS['maximumunreachable'] = 20;
-$GLOBALS['timelinkchecked'] = time();//-86400;
-//$GLOBALS['tablename'] = "registry";
-//$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`sitename`,`url`,`public`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `override`=0 AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
+$GLOBALS['maximumunreachable'] = 3;
+$GLOBALS['timelinkchecked'] = time()-86400; // for tests, use eg: -(1*60*60);
 $GLOBALS['tablename'] = "hub_site_directory";
-
 $GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `override`=0 AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
 $GLOBALS['sitessofar'] = null;
 $GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `override`=0 AND `timelinkchecked`<=$timelinkchecked"); 
@@ -153,7 +151,7 @@ echo "\n\nProcess Complete\nPassed: $sitespassed\tFailed: $sitesfailed\tErrored:
 echo "\nTotal time: ". (microtime(true)-$overallstarttime)."\n\n";
 flush();
 
-function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodlerelease=null, $serverstring=null) {
+function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodlerelease=null, $serverstring=null, $fingerprint=null) {
     global $tablename, $DB;
     $updatedsite = new stdClass;
     $updatedsite->id = $site->id;
@@ -166,6 +164,7 @@ function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodl
     $updatedsite->unreachable = $unreachable;
     $updatedsite->score = $score;
     $updatedsite->errormsg = $errormessage;
+    $updatedsite->fingerprint = $fingerprint;
 
     if (isset($site->redirectto)) {
       $updatedsite->redirectto = $site->redirectto;
@@ -247,6 +246,8 @@ function fill_site_buffer() {
     foreach ($sites as $site) {
         $site->manualredirect = 0;
         $sitebuffer[] = $site;
+        //update timelinkchecked early (useful when running some multiple linkchecker processes to go thru bunch faster when testing fingerprinting)
+        update_site($site);
     }
 
     if ($lastsiteid===$site->id) {
@@ -269,7 +270,7 @@ function link_checker_test_result(&$site, $handle, $html) {
     if (preg_match("/Server: (.*)(\n|\r)/", $head, $smatches)) {
       $serverstring = trim($smatches[1]);
     }
-
+    $fingerprint = ''; //reflects $rules set matching.
     $headscore = 0;
     if (strlen($head)>10) {
         $rules = array("Set\-Cookie: MoodleSessionTest=",
@@ -278,10 +279,13 @@ function link_checker_test_result(&$site, $handle, $html) {
         foreach ($rules as &$header_regex) {
           if (preg_match("/".$header_regex."/", $head)) {
             $headscore += 2;
+            $fingerprint .= '1';
+          } else {
+            $fingerprint .= '0';
           }
         }
     }
-
+    $fingerprint .= '/';
     $htmlscore = 0;
     $moodlerelease = null;
     if (strlen($html)>40) {
@@ -312,46 +316,48 @@ function link_checker_test_result(&$site, $handle, $html) {
                 "<span id=\"maincontent\"><\/span><div class=\"box generalbox sitetopic\"><div class=\"no-overflow\">",
                 "<div id=\"region-main-wrap\">\n\s+<div id=\"region-main\">\n\s+<div class=\"region-content\">"
                     );
-                    
+
         foreach ($rules as &$body_regex) {
           if (preg_match("/".$body_regex."/", $html)) {
             $htmlscore += 1;
+            $fingerprint .= '1';
+          } else {
+            $fingerprint .= '0';
           }
         }
         if (preg_match("/(?:title=\"Moodle )(.{0,20})(?: \((Build: |))(\d+)(?:\)\")/i", $html, $matches)) {
           $moodlerelease = $matches[1]." (".$matches[3].")";
         }
      }
-    echo 'Headscore (cookie): '. $headscore;
-    echo '\nBodyhtmlscore (regexed on body html): '. $htmlscore;
+
     $score = $htmlscore+$headscore;
 
     if ($score >= 5) {   // Success!
       if (curl_getinfo($handle, CURLINFO_EFFECTIVE_URL) != $site->originalurl) {
         $site->redirectto = curl_getinfo($handle, CURLINFO_EFFECTIVE_URL);
       }
-      update_site($site, $score, 0, '', $moodlerelease, $serverstring);
+      update_site($site, $score, 0, '', $moodlerelease, $serverstring, $fingerprint);
       if ($moodlerelease==null) {
         $moodlerelease = "Unknown";
       }
-      writeline($site->id, $site->url, 'P', (string)$htmlscore.'/'.(string)$headscore,curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),'-', '', $moodlerelease);
+      writeline($site->id, $site->url, 'P', (string)$htmlscore.'/'.(string)$headscore, (string)$fingerprint, curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),'-', '', $moodlerelease);
       return true;
     } else {   // Failure
-      update_site($site, $score, ((int)$site->unreachable+1), '', $moodlerelease, $serverstring);
+      update_site($site, $score, ((int)$site->unreachable+1), '', $moodlerelease, $serverstring, $fingerprint);
       if ($moodlerelease==null) {
         $moodlerelease = "Unknown";
       }
-      writeline($site->id, $site->url, 'F', (string)$htmlscore.'/'.(string)$headscore,curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),'0', 'Failed Check with score '.(string)$score, $moodlerelease);
+      writeline($site->id, $site->url, 'F', (string)$htmlscore.'/'.(string)$headscore, (string)$fingerprint, curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),'0', 'Failed Check with score '.(string)$score, $moodlerelease);
       return false;
     }
 }
 
-function writeline($id, $url, $outcome='F', $score='0', $redirects='0', $errorno='', $errormsg='', $moodlerelease='') {
+function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redirects='0', $errorno='', $errormsg='', $moodlerelease='') {
     static $header;
     static $count;
     if ($header==null) {
-        echo "\nC   |ID        | URL                                               | P/F | Score (Head/Body) |Redir |ErNum| Version                 | Error Msg";
-        echo "\n-----------------------------------------------------------------------------------------------------------------------------------------------------------------";
+        echo "\nC   |ID        | URL                                               | P/F | Score (Body/Head) |          Fingerprint          | Redir |ErNum| Version                 | Error Msg";
+        echo "\n--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------";
         $header = true;
     }
     if ($count==null) {
@@ -368,11 +374,12 @@ function writeline($id, $url, $outcome='F', $score='0', $redirects='0', $errorno
     $url = (strlen($url)<50)?str_pad($url,50):substr($url,0,50);
     $outcome = (strlen($outcome)<4)?str_pad($outcome,4):substr($outcome,0,4);
     $score = (strlen($score)<18)?str_pad($score,18):substr($score,0,18);
+    $fingerprint = (strlen($fingerprint)<30)?str_pad($fingerprint,30):substr($fingerprint,0,30);
     $redirects = (strlen($redirects)<4)?str_pad($redirects,5):substr($redirects,0,5);
     $errorno = (strlen($errorno)<4)?str_pad($errorno,4):substr($errorno,0,4);
     $moodlerelease = (strlen($moodlerelease)<24)?str_pad($moodlerelease,24):substr($moodlerelease,0,24);
     $errormsg = (strlen($errormsg)<70)?str_pad($errormsg,70):substr($errormsg,0,70);
-    echo "\n$countstr|$id| $url| $outcome| $score| $redirects| $errorno| $moodlerelease| $errormsg";
+    echo "\n$countstr|$id| $url| $outcome| $score| $fingerprint| $redirects| $errorno| $moodlerelease| $errormsg";
     flush();
 }
 
