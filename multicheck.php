@@ -53,9 +53,9 @@ $GLOBALS['sitebufferlimit'] = 30;
 $GLOBALS['maximumunreachable'] = 3;
 $GLOBALS['timelinkchecked'] = time()-86400; // for tests, use eg: -(1*60*60);
 $GLOBALS['tablename'] = "hub_site_directory";
-$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `override`=0 AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
+$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
 $GLOBALS['sitessofar'] = null;
-$GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `override`=0 AND `timelinkchecked`<=$timelinkchecked");
+$GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `timelinkchecked`<=$timelinkchecked");
 $GLOBALS['maxcurltimeout'] = 40;
 $GLOBALS['maxconnectiontimeout'] = 40;
 
