@@ -64,7 +64,7 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
         $cell = new html_table_cell('Checking..');
         $cell->attributes = array('id' => $rec->id, 'class' => 'manualcheck', 'url' => $rec->url);
 
-        $row = array($rec->id, '<a href="'.$rec->url.'">'.$rec->url.'</a>', $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
+        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank">'.$rec->url.'</a>', $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
         $table->data[] = $row;
     }
     $htmltable = html_writer::table($table);
