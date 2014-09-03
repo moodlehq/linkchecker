@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-
+die();//not active.
 if (isset($_SERVER['REQUEST_METHOD'])) { echo "This script cannot be called from a browser<BR>\n"; exit; }
 $GLOBALS['lockfile'] = "/opt/linkcheck/moodle19/sites/.multicheckdead.lock";
 declare(ticks = 1);
