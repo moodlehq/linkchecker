@@ -51,13 +51,13 @@ $GLOBALS['sitebuffer'] = Array();
 $GLOBALS['sitesrunning'] = Array();
 $GLOBALS['sitebufferlimit'] = 30;
 $GLOBALS['maximumunreachable'] = 3;
-$GLOBALS['timelinkchecked'] = time()-86400; // for tests, use eg: -(1*60*60);
+$GLOBALS['timelinkchecked'] = time(); // for tests, use eg: time()-(1*60*60) to test fewer, otherwise just check all;
 $GLOBALS['tablename'] = "hub_site_directory";
 $GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
 $GLOBALS['sitessofar'] = null;
 $GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `timelinkchecked`<=$timelinkchecked");
-$GLOBALS['maxcurltimeout'] = 40;
-$GLOBALS['maxconnectiontimeout'] = 40;
+$GLOBALS['maxcurltimeout'] = 140;
+$GLOBALS['maxconnectiontimeout'] = 140;
 
 $maxsitecurls = 20;
 $maxredirects = 5;
@@ -156,7 +156,9 @@ function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodl
     $updatedsite = new stdClass;
     $updatedsite->id = $site->id;
     $updatedsite->timelinkchecked = time();
-    if (strpos($errormessage, "Connection time-out after") !== false) {
+    //reset for further checking if error message indicates time out. (not the exact string as this may change due to curl changes in php...)
+    // @todo for some reason error number is not used here....
+    if (strpos($errormessage, "Connection") !== false || strpos($errormessage, "timed out") !== false  || strpos($errormessage, "milliseconds") !== false ) {
       $unreachable = 0;
       $score = 0;
       $updatedsite->override = 2;
@@ -342,8 +344,8 @@ function link_checker_test_result(&$site, $handle, $html) {
       }
       writeline($site->id, $site->url, 'P', (string)$htmlscore.'/'.(string)$headscore, (string)$fingerprint, curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),'-', '', $moodlerelease);
       return true;
-    } else {   // Failure
-      update_site($site, $score, ((int)$site->unreachable+1), '', $moodlerelease, $serverstring, $fingerprint);
+    } else {   // Failure, but we did reach the site!
+      update_site($site, $score, 0, '', $moodlerelease, $serverstring, $fingerprint);
       if ($moodlerelease==null) {
         $moodlerelease = "Unknown";
       }
@@ -356,8 +358,9 @@ function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redire
     static $header;
     static $count;
     if ($header==null) {
-        echo "\nC   |ID        | URL                                               | P/F | Score (Body/Head) |          Fingerprint          | Redir |ErNum| Version                 | Error Msg";
-        echo "\n--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------";
+        $hdstr = "\nC   |ID        | URL                                               | P/F | Score (Body/Head) |          Fingerprint          | Redir |ErNum                                          | Version                 | Error Msg";
+        echo $hdstr;
+        echo "\n".str_repeat('-', strlen($hdstr));
         $header = true;
     }
     if ($count==null) {
@@ -376,7 +379,8 @@ function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redire
     $score = (strlen($score)<18)?str_pad($score,18):substr($score,0,18);
     $fingerprint = (strlen($fingerprint)<30)?str_pad($fingerprint,30):substr($fingerprint,0,30);
     $redirects = (strlen($redirects)<4)?str_pad($redirects,5):substr($redirects,0,5);
-    $errorno = (strlen($errorno)<4)?str_pad($errorno,4):substr($errorno,0,4);
+    //don't pad this.
+    //$errorno = (strlen($errorno)<4)?str_pad($errorno,4):substr($errorno,0,4);
     $moodlerelease = (strlen($moodlerelease)<24)?str_pad($moodlerelease,24):substr($moodlerelease,0,24);
     $errormsg = (strlen($errormsg)<70)?str_pad($errormsg,70):substr($errormsg,0,70);
     echo "\n$countstr|$id| $url| $outcome| $score| $fingerprint| $redirects| $errorno| $moodlerelease| $errormsg";
@@ -415,7 +419,7 @@ function create_handle($url) {
     //2 to check the existence of a common name and also verify that it matches the hostname provided.
     //In production environments the value of this option should be kept at 2 (default value).
     //Support for value 1 removed in cURL 7.28.1
-    curl_setopt ($handle, CURLOPT_SSL_VERIFYHOST, 2);
+    curl_setopt ($handle, CURLOPT_SSL_VERIFYHOST, 0);
     curl_setopt ($handle, CURLOPT_TIMEOUT, $maxcurltimeout);
     curl_setopt ($handle, CURLOPT_CONNECTTIMEOUT, $maxconnectiontimeout);
 //    curl_setopt ($handle, CURLOPT_INTERFACE, "184.172.24.2");
