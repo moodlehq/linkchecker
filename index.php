@@ -11,18 +11,17 @@ $limitnum = optional_param('limitnum', 100, PARAM_INT);
 $PAGE->set_context(context_system::instance());
 $PAGE->set_url(new moodle_url('/local/linkchecker/'));
 $PAGE->requires->jquery();
-//$PAGE->requires->yui_module('moodle-local-linkchecker', 'M.local_linkchecker.init');
-//$PAGE->requires->js(new moodle_url('/local/linkchecker/js/linkchecker.js'));
 
 $isadmin = ismoodlesiteadmin();
 if (!$isadmin) {
     redirect('http://moodle.net/sites'); //shoo
 }
 $chkurl = optional_param('url', null, PARAM_URL);
-$siteid = optional_param('id', null, PARAM_URL);
+//$siteid = optional_param('id', null, PARAM_URL);
 if ($chkurl !== null) {
     $hdrs = get_headers($chkurl.'/lib/womenslib.php',1);
-    error_log((print_r($hdrs,true)));
+    //also can check login/forgot_password.php ..for some stuff...
+    // anyway the point is humans check and feedback. Devs filter that feedback and transform into rules.. barring AI ofcourse.
     echo htmlspecialchars($hdrs[0]); // ' Mod:'. $hdrs[3]); //http code and modified.
     die();
 }
@@ -65,26 +64,54 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
         $cell = new html_table_cell('Checking..');
         $cell->attributes = array('id' => $rec->id, 'class' => 'manualcheck', 'url' => $rec->url);
 
-        $row = array($rec->id, $rec->url, $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
+        $row = array($rec->id, '<a href="'.$rec->url.'">'.$rec->url.'</a>', $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
         $table->data[] = $row;
     }
     $htmltable = html_writer::table($table);
 
-    echo $htmltable ;
+    list($sql, $params) = local_hub_stats_get_confirmed_sql();
+    $sql = "SELECT count(*) as onlinesitescount FROM {hub_site_directory} r WHERE ".$sql;
+    $totsitesonline = $DB->get_record_sql($sql, $params);
     
+    echo '<span class="totrec">Total sites: '. $totrecs. '</span> | <span class="online">Total online &amp; moodley: '.$totsitesonline->onlinesitescount .'</span> | <span class="limitnum">Offline sites loaded in table: '. $limitnum. ' </span> | ';
+    echo '<span class="checked">Checked: <span class="chkcnt">0</span></span> | <span class="notfail">not failed: <span class="notfailcnt">0</span></span>  | <span class="fails">Desired Fails: <span class="failcnt">0</span></span> | <span class="percentage">linkchecking fraction (desiredfails/checked): <span class="perc" style="color:#C00;"></span></span>';
+    echo '<br/><span class="confidence">Further confidence level and other statistical analytics can be applied with the above. Adjust linkchecking percentage after human checking.</span>';
+
+    echo $htmltable ;
+//    $nonmoodlecnt = $totrecs-$totsitesonline->onlinesitescount;
+
 $jsscr = <<<js
 <script>
     function linkchecker() {
+            var chkcnt;
+            var failcnt;
+            var notfailcnt;
+            var percentage;
+            var confidence;
+            var Z = 1.96; //for 95% confidence in a std distribution (about Random 400 samples for over 183k sites will be good)
             $(".manualcheck").each(function(index, element){
                 element.innerHTML = 'Checking, sent to server, awaiting response..';
                 $.get('index.php',
                     { url: this.getAttribute('url') },
                     function(responseText) {
-                    console.log();
                     console.log(responseText);
                     element.innerHTML = responseText;
+                    chkcnt = $(".chkcnt").html();
+                    chkcnt++;
+                    $(".chkcnt").html(chkcnt);
                     if (responseText.indexOf("200 OK") >= 0) {
-                        element.innerHTML = '<span style="color:#ff0000">' + responseText + '</span>';
+                        element.innerHTML = '<span style="color:#ff0000">' + responseText + ' Human verification will be good here.</span>';
+                        notfailcnt = $(".notfailcnt").html();
+                        notfailcnt++;
+                        $(".notfailcnt").html(notfailcnt);
+                    } else {
+                        failcnt = $(".failcnt").html();
+                        failcnt++;
+                        $(".failcnt").html(failcnt);
+                        console.log("desired fail count:"+failcnt);
+                        percentage = failcnt / chkcnt;
+                        console.log("linkchecker percentage(%):"+percentage);
+                        $(".perc").html(percentage);
                     }
                 });
             });
