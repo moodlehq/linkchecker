@@ -20,9 +20,15 @@ $chkurl = optional_param('url', null, PARAM_URL);
 //$siteid = optional_param('id', null, PARAM_URL);
 if ($chkurl !== null) {
     $hdrs = get_headers($chkurl.'/lib/womenslib.php',1);
-    //also can check login/forgot_password.php ..for some stuff...
-    // anyway the point is humans check and feedback. Devs filter that feedback and transform into rules.. barring AI ofcourse.
-    echo htmlspecialchars($hdrs[0]); // ' Mod:'. $hdrs[3]); //http code and modified.
+    if ($hdrs == false) {
+        //return some error info.
+        $err = error_get_last();
+        echo $err['message'];
+    } else {
+        //also can check login/forgot_password.php ..for some stuff...
+        // anyway the point is humans check and feedback. Devs filter that feedback and transform into rules.. barring AI ofcourse.
+        echo htmlspecialchars($hdrs[0]); // ' Mod:'. $hdrs[3]); //http code and modified.
+    }
     die();
 }
 
