@@ -35,7 +35,7 @@ echo $OUTPUT->header();
 
 $totrecs = $DB->count_records('hub_site_directory');
 
-$limitfrom = optional_param('limitfrom', rand(1, $totrecs), PARAM_INT);
+$limitfrom = optional_param('limitfrom', rand(1, $totrecs-$limitnum), PARAM_INT);
 
 list($where, $params) = local_hub_stats_get_confirmed_sql();
 
@@ -54,7 +54,7 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
                 'url',
                 'unreachable',
                 'score',
-                'fingerprint OR cron-linkchecker:errormsg',
+                'Previous fingerprint OR cron-linkchecker:errormsg',
                 'Now checking for womens liberty..'
             );
     $table->colclasses = array();
