@@ -6,7 +6,7 @@ require_once($CFG->libdir.'/tablelib.php');
 
 define('LINKCHECKER_DIR', 'local/linkchecker');
 
-$limitnum = optional_param('limitnum', 100, PARAM_INT);
+$limitnum = optional_param('limitnum', 400, PARAM_INT); //400/183000 for 95% (-/+5%) confidence.
 
 $PAGE->set_context(context_system::instance());
 $PAGE->set_url(new moodle_url('/local/linkchecker/'));
@@ -45,11 +45,21 @@ $limitfrom = optional_param('limitfrom', rand(1, $totrecs-$limitnum), PARAM_INT)
 
 list($where, $params) = local_hub_stats_get_confirmed_sql();
 
-$failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerprint, errormsg '
-        . 'from {hub_site_directory} r WHERE NOT('. $where. ')' , $params, $limitfrom, $limitnum);
+$allfailedrecids = $DB->get_fieldset_sql('Select id from {hub_site_directory} r WHERE NOT('. $where. ')' , $params); //get all failed site ids.
 
-//$passedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerprint, errormsg '
-//        . 'from {hub_site_directory} r WHERE '. $where, $params, $limitfrom, $limitnum);
+$randomrecordids = array();
+$id=0;
+while (count($randomrecordids)<$limitnum) {
+    while(!in_array($id=rand(0, $totrecs-1), $randomrecordids) && in_array($id,$allfailedrecids)) { //get unique random list of ids.
+        $randomrecordids[] = $id;
+        break;
+    }
+}
+
+list($in_sql, $params) = $DB->get_in_or_equal($randomrecordids, SQL_PARAMS_NAMED, 'r', true);
+
+$failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerprint, errormsg '
+        . 'from {hub_site_directory} r WHERE id '.$in_sql , $params);
 
 // Outputs table
     $table = new html_table();
