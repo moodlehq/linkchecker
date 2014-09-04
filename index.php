@@ -6,7 +6,7 @@ require_once($CFG->libdir.'/tablelib.php');
 
 define('LINKCHECKER_DIR', 'local/linkchecker');
 
-$limitnum = optional_param('limitnum', 400, PARAM_INT); //400/183000 for 95% (-/+5%) confidence.
+$limitnum = optional_param('limitnum', 400, PARAM_INT); //for now a fixed 400 out of 183000 for 95% (-/+5%) confidence.
 
 $PAGE->set_context(context_system::instance());
 $PAGE->set_url(new moodle_url('/local/linkchecker/'));
@@ -57,7 +57,7 @@ while (count($randomrecordids)<$limitnum) {
 }
 
 list($in_sql, $params) = $DB->get_in_or_equal($randomrecordids, SQL_PARAMS_NAMED, 'r', true);
-
+$im = getcoverageimg($totrecs, $randomrecordids);
 $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerprint, errormsg '
         . 'from {hub_site_directory} r WHERE id '.$in_sql , $params);
 
@@ -91,7 +91,14 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
     
     echo '<span class="totrec">Total sites: '. $totrecs. '</span> | <span class="online">Total online &amp; moodley: '.$totsitesonline->onlinesitescount .'</span> | <span class="limitnum">Offline sites loaded in table: '. $limitnum. ' </span> | ';
     echo '<span class="checked">Checked: <span class="chkcnt">0</span></span> | <span class="notfail">not failed: <span class="notfailcnt">0</span></span>  | <span class="fails">Desired Fails: <span class="failcnt">0</span></span> | <span class="percentage">linkchecking fraction (desiredfails/checked): <span class="perc" style="color:#C00;"></span></span>';
-    echo '<br/><span class="confidence">Further confidence level and other statistical analytics can be applied with the above. Adjust linkchecking percentage after human checking.</span>';
+    echo '<br/>Coverage of unmoodle sites:<img class="samplingfailedrecsdistribution" style="width:100%; height:20px;" src="data:image/png;base64,';
+    ob_start();
+    imagepng($im);
+    $im = ob_get_contents();
+    ob_end_clean();
+    echo base64_encode($im);
+    echo '" />';
+    echo '<br/><span class="confidence">Default sample size 400 is for a 95% (+/-5%) confidence test.  Adjustable in url by appending "?limitnum=xxx". Please remember to adjust your linkchecking percentage after human checking and raise moodley sites from here to developers.</span>';
 
     echo $htmltable ;
 //    $nonmoodlecnt = $totrecs-$totsitesonline->onlinesitescount;
@@ -139,3 +146,26 @@ js;
 echo $jsscr; // bloody yui
 
 echo $OUTPUT->footer();
+
+function getcoverageimg($totrecs, $randomrecordids, $highlightrecs=null) {
+    core_php_time_limit::raise(300);
+    $width = 18000; $height = 10; $padding = 10;
+    $column_width = $width / $totrecs ;
+    $im        = imagecreate($width,$height);
+    $gray      = imagecolorallocate ($im,0xcc,0xcc,0xcc);
+    $gray_lite = imagecolorallocate ($im,0xee,0xee,0xee);
+    $gray_dark = imagecolorallocate ($im,0x7f,0x7f,0x7f);
+    $white     = imagecolorallocate ($im,0xff,0xff,0xff);
+    imagefilledrectangle($im,0,0,$width,$height,$white);
+    $maxv = 1;
+    for($i=0;$i<$totrecs;$i++)
+    {
+        $column_height = 1+ (9* (int) in_array($i, $randomrecordids));
+        $x1 = $i*$column_width;
+        $y1 = $height-$column_height;
+        $x2 = (($i+1)*$column_width)-$padding;
+        $y2 = $height;
+        imagefilledrectangle($im,$x1,$y1,$x2,$y2,$gray);
+    }
+    return $im;
+}
