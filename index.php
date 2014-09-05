@@ -189,7 +189,7 @@ function getcoverageimg($totrecs, $randomrecordids, $highlightrecs=false) {
         //left in some column ht code (c&p)
         for($i=0;$i<$totrecs;$i++)
         {
-            $column_height = (10* ((int) in_array($i, $randomrecordids)));
+            $column_height = ($height * ((int) in_array($i, $randomrecordids)));
             $x1 = $i*$column_width;
             $y1 = $height-$column_height;
             $x2 = (($i+1)*$column_width)-$padding;
