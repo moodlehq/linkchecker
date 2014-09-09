@@ -60,12 +60,17 @@ list($where, $params) = local_hub_stats_get_confirmed_sql();
 $allfailedrecids = $DB->get_fieldset_sql('Select id from {hub_site_directory} r WHERE NOT('. $where. ')' , $params); //get all failed site ids.
 
 $randomrecordids = array();
-$id=0;
-while (count($randomrecordids)<$limitnum) {
-    while(!in_array($id=rand(0, $totrecs-1), $randomrecordids) && in_array($id,$allfailedrecids)) { //get unique random list of ids.
-        $randomrecordids[] = $id;
-        break;
+
+if (is_null($siteid)) {
+    $id=0;
+    while (count($randomrecordids)<$limitnum) {
+        while(!in_array($id=rand(0, $totrecs-1), $randomrecordids) && in_array($id,$allfailedrecids)) { //get unique random list of ids.
+            $randomrecordids[] = $id;
+            break;
+        }
     }
+} else {
+    $randomrecordids[] = $siteid;
 }
 
 list($in_sql, $params) = $DB->get_in_or_equal($randomrecordids, SQL_PARAMS_NAMED, 'r', true);
@@ -92,7 +97,9 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
         $cell = new html_table_cell('Checking..');
         $cell->attributes = array('siteid' => $rec->id, 'class' => 'manualcheck', 'url' => $rec->url);
 
-        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank">'.$rec->url.'</a>', $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
+        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank">Browse site</a> | '
+            .'<a href="./?siteid='.$rec->id.'" target="_blank" style="float:right;">Linkcheck it</a>'
+            , $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
         $table->data[] = $row;
     }
     $htmltable = html_writer::table($table);
