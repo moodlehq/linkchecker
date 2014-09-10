@@ -31,7 +31,7 @@ if (!is_null($siteid) && !is_null($img)) {
 }
 
 if ($chkurl !== null) {
-    $hdrs = get_headers($chkurl.'/lib/womenslib.php',1);
+    list($hdrs, $redircnt) = reachaUrl($chkurl.'/lib/womenslib.php');
     if ($hdrs == false) {
         //return some error info.
         $err = error_get_last();
@@ -42,7 +42,7 @@ if ($chkurl !== null) {
         $result = htmlspecialchars($hdrs[0]); // ' Mod:'. $hdrs[3]); //http code and modified.
     }
 //    $result = '200 OK'; //test.
-    echo json_encode(array('result'=>$result, 'siteid' => $siteid, 'imgsrc' => $CFG->wwwroot.'/local/linkchecker/index.php?siteid='.$siteid.'&img=1'));
+    echo json_encode(array('result'=> 'redirections:'. $redircnt. ' final response:'. $result, 'siteid' => $siteid, 'imgsrc' => $CFG->wwwroot.'/local/linkchecker/index.php?siteid='.$siteid.'&img=1'));
     die();
 }
 
@@ -221,4 +221,17 @@ function getcoverageimg($totrecs, $randomrecordids, $highlightrecs=false) {
         imagefilledrectangle($im,$x1,$y1,$x2,$y2,$highlightrecs?$red:$gray);
     }
     return $im;
+}
+
+function reachaUrl ($url, $redirectcount=0) {
+    stream_context_set_default(array(
+        'http' => array(
+            'method' => 'HEAD'
+        )
+    ));
+    $headers = get_headers($url, 1);
+    if ($headers !== false && isset($headers['Location'])) {
+        reachaUrl($headers['Location'], ++$redirectcount);
+    }
+    return array($headers, $redirectcount);
 }
