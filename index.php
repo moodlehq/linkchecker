@@ -97,8 +97,16 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
         $cell = new html_table_cell('Checking..');
         $cell->attributes = array('siteid' => $rec->id, 'class' => 'manualcheck', 'url' => $rec->url);
 
-        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank">Browse site</a> | '
-            .'<a href="./?siteid='.$rec->id.'" target="_blank" style="float:right;">Linkcheck it</a>'
+        $trackerparams = array (
+            'pid'=>'10020', 'issuetype'=>'3', //tracker.moodle.org : moodle community sites project id.
+            'description' => 'see linkcheck test page @ '.$CFG->wwwroot.'/local/linkchecker/index.php?siteid='.$rec->id,
+            'components' => '12633', //tracker.moodle.org : moodle community sites project's 'moodle.net' component id.
+            'summary' => 'linkchecker found to have missed moodle site (id '.$rec->id.')',
+            'security' => '10030' //, 'schemeId' => '10000'  //set atleast 'could be a security issue' as site privacy settings can be changing/changed on moodle.net
+        );
+        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank"> Browse it </a>|'
+            .'<a href="./?siteid='.$rec->id.'" target="_blank" > Linkcheck it </a>|'
+            .'<a href="http://tracker.moodle.org/secure/CreateIssueDetails!init.jspa?'.  http_build_query($trackerparams).'" target="_blank" > Report it </a>'
             , $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
         $table->data[] = $row;
     }
@@ -148,8 +156,8 @@ $jsscr = <<<js
                         chkcnt = $(".chkcnt").html();
                         chkcnt++;
                         $(".chkcnt").html(chkcnt);
-                        if (responseText.result.indexOf("200 OK") >= 0) {
-                            element.innerHTML = '<span style="color:#ff0000">' + responseText.result + ' Human verification preferred.</span>';
+                        if (responseText.result.indexOf("200 OK") >= 0 || responseText.result.indexOf("303 See Other") >= 0) {
+                            element.innerHTML = '<span style="color:#ff0000">' + responseText.result + ' (Human verification preferred.)</span>';
                             notfailcnt = $(".notfailcnt").html();
                             notfailcnt++;
                             $(".notfailcnt").html(notfailcnt);
