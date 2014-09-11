@@ -75,7 +75,7 @@ if (is_null($siteid)) {
 
 list($in_sql, $params) = $DB->get_in_or_equal($randomrecordids, SQL_PARAMS_NAMED, 'r', true);
 $im = getcoverageimg($totrecs, $randomrecordids);
-$failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerprint, errormsg '
+$failedrecs = $DB->get_records_sql('Select id, url, countrycode, privacy, unreachable, score, fingerprint, errormsg '
         . 'from {hub_site_directory} r WHERE id '.$in_sql , $params);
 
 // Outputs table
@@ -85,8 +85,10 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
     $table->head = array(
                 "id",
                 'url',
+                "CC",
                 'unreachable',
                 'score',
+                'privacy',
                 'Previous fingerprint OR cron-linkchecker:errormsg',
                 'Now checking for womens liberty..'
             );
@@ -104,10 +106,13 @@ $failedrecs = $DB->get_records_sql('Select id, url, unreachable, score, fingerpr
             'summary' => 'linkchecker found to have missed moodle site (id '.$rec->id.')',
             'security' => '10030' //, 'schemeId' => '10000'  //set atleast 'could be a security issue' as site privacy settings can be changing/changed on moodle.net
         );
-        $row = array($rec->id, '<a href="'.$rec->url.'" target="_blank"> Browse it </a>|'
-            .'<a href="./?siteid='.$rec->id.'" target="_blank" > Linkcheck it </a>|'
-            .'<a href="http://tracker.moodle.org/secure/CreateIssueDetails!init.jspa?'.  http_build_query($trackerparams).'" target="_blank" > Report it </a>'
-            , $rec->unreachable, $rec->score, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
+        $scorefield = (!in_array($siteid, $allfailedrecids)) ?'(moodley)':'';
+        $row = array($rec->id,
+                    '<a href="'.$rec->url.'" target="_blank"> Browse it </a>|'
+                        .'<a href="./?siteid='.$rec->id.'" target="_blank" > Linkcheck it </a>|'
+                        .'<a href="http://tracker.moodle.org/secure/CreateIssueDetails!init.jspa?'.  http_build_query($trackerparams).'" target="_blank" > Report it </a>'
+                        ,'<a href="/sites?country='.$rec->countrycode.'" target="_blank" >'.$rec->countrycode.'</a>'
+                        , $rec->unreachable, $rec->score. $scorefield, $rec->privacy, (strlen($rec->errormsg)>0)?$rec->errormsg:'fingerprint:'.$rec->fingerprint, $cell);
         $table->data[] = $row;
     }
     $htmltable = html_writer::table($table);

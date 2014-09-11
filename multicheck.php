@@ -53,7 +53,9 @@ $GLOBALS['sitebufferlimit'] = 30;
 $GLOBALS['maximumunreachable'] = 3;
 $GLOBALS['timelinkchecked'] = time(); // for tests, use eg: time()-(1*60*60) to test fewer, otherwise just check all;
 $GLOBALS['tablename'] = "hub_site_directory";
-$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
+$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` "
+        . "FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY RAND() DESC LIMIT %d"; 
+//sort sites randomly for more evenly distributed use of curl multi handle buffer - too many sequential wait times hog up the buffer.
 $GLOBALS['sitessofar'] = null;
 $GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `timelinkchecked`<=$timelinkchecked");
 $GLOBALS['maxcurltimeout'] = 140;
@@ -316,7 +318,11 @@ function link_checker_test_result(&$site, $handle, $html) {
                 "\/theme\/javascript.php",
                 "class=\"skip-block\"",
                 "<span id=\"maincontent\"><\/span><div class=\"box generalbox sitetopic\"><div class=\"no-overflow\">",
-                "<div id=\"region-main-wrap\">\n\s+<div id=\"region-main\">\n\s+<div class=\"region-content\">"
+                "<body id=\"page-site-index\"",
+                "<div id=\"region-main-wrap\">\n\s+<div id=\"region-main\">\n\s+<div class=\"region-content\">",
+                // some moodles force login and we end up at login page. these are rules specific to moodle login page scoring.
+                "<body id=\"page-login-index\"",
+                "<div class=\"rememberpass\">"
                     );
 
         foreach ($rules as &$body_regex) {
@@ -377,10 +383,8 @@ function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redire
     $url = (strlen($url)<50)?str_pad($url,50):substr($url,0,50);
     $outcome = (strlen($outcome)<4)?str_pad($outcome,4):substr($outcome,0,4);
     $score = (strlen($score)<18)?str_pad($score,18):substr($score,0,18);
-    $fingerprint = (strlen($fingerprint)<30)?str_pad($fingerprint,30):substr($fingerprint,0,30);
     $redirects = (strlen($redirects)<4)?str_pad($redirects,5):substr($redirects,0,5);
     //don't pad this.
-    //$errorno = (strlen($errorno)<4)?str_pad($errorno,4):substr($errorno,0,4);
     $moodlerelease = (strlen($moodlerelease)<24)?str_pad($moodlerelease,24):substr($moodlerelease,0,24);
     $errormsg = (strlen($errormsg)<70)?str_pad($errormsg,70):substr($errormsg,0,70);
     echo "\n$countstr|$id| $url| $outcome| $score| $fingerprint| $redirects| $errorno| $moodlerelease| $errormsg";
@@ -415,6 +419,7 @@ function create_handle($url) {
     curl_setopt ($handle, CURLOPT_DNS_USE_GLOBAL_CACHE, false);
     curl_setopt ($handle, CURLOPT_HEADER, true);
     curl_setopt ($handle, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt ($handle,CURLOPT_ENCODING , "gzip"); // for some curl OPTIONAL speed and perhaps more accomodating
     //1 to check the existence of a common name in the SSL peer certificate. 
     //2 to check the existence of a common name and also verify that it matches the hostname provided.
     //In production environments the value of this option should be kept at 2 (default value).
