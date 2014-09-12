@@ -93,7 +93,8 @@ $failedrecs = $DB->get_records_sql('Select id, url, countrycode, privacy, unreac
                 'Now checking for womens liberty..'
             );
     $table->colclasses = array();
-    
+    $scorefield = '';
+
     foreach ($failedrecs as $rec) {
         
         $cell = new html_table_cell('Checking..');
@@ -106,7 +107,9 @@ $failedrecs = $DB->get_records_sql('Select id, url, countrycode, privacy, unreac
             'summary' => 'linkchecker found to have missed moodle site (id '.$rec->id.')',
             'security' => '10030' //, 'schemeId' => '10000'  //set atleast 'could be a security issue' as site privacy settings can be changing/changed on moodle.net
         );
-        $scorefield = (!in_array($siteid, $allfailedrecids)) ?'(moodley)':'';
+        if (!is_null($siteid)) {
+            $scorefield = (!in_array($siteid, $allfailedrecids)) ?'(moodley)':'';
+        }
         $row = array($rec->id,
                     '<a href="'.$rec->url.'" target="_blank"> Browse it </a>|'
                         .'<a href="./?siteid='.$rec->id.'" target="_blank" > Linkcheck it </a>|'

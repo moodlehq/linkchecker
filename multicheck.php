@@ -78,6 +78,13 @@ $siteserrored = 0;
 
 $moodleypage = '/login/index.php'; //these should be accessible and constant over time
 
+//todo turn above single check page into an array of pages to crawl deeper into
+$moodleypages = array( //unused !! @todo use this.
+    '/login/index.php',
+    '/lib/womenslib.php', //but this is a redirect page so check for 303 to the wiki pg.
+    'lib/upgrade.txt', //only for pages after certain moodle version (2.x?) - this is however a txt file and not a functioning site page... combine testing this with a live page.
+);
+
 for(;;) {
 
     while ($sitecurlsrunning<$maxsitecurls && count($sitebuffer)>0) {
