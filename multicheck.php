@@ -76,6 +76,8 @@ $sitespassed = 0;
 $sitesfailed = 0;
 $siteserrored = 0;
 
+$moodleypage = '/login/index.php'; //these should be accessible and constant over time
+
 for(;;) {
 
     while ($sitecurlsrunning<$maxsitecurls && count($sitebuffer)>0) {
@@ -137,7 +139,19 @@ for(;;) {
                 if ($outcome) {
                     $sitespassed++;
                 } else {
-                    $sitesfailed++;
+                    // frontpages are heavily modified.. in addition, check one $timelongmoodleypgs page
+                    if (!preg_match('#'.$moodleypage.'#', $site->url)) {
+                        $oldurl = $site->url;
+                        $outcome = reinsert_site_into_buffer($site, $site->url. $moodleypage);
+                        if ($outcome===false) {
+                            update_site($site, '', ((int)$site->unreachable+1), 'Max manual redirects exceeded (moodleypage)');
+                            writeline($site->id, $oldurl,'', '', $site->manualredirect, '', 'Maximum manual redirects exceeded : '.$site->url. $moodleypage);
+                        } else {
+                            writeline($site->id, $oldurl,'', '', $site->manualredirect, '', 'Extra page check redirect for '.$site->url);
+                        }
+                    } else {
+                        $sitesfailed++;
+                    }
                 }
             }
         }
