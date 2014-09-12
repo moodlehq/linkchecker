@@ -54,7 +54,7 @@ $GLOBALS['maximumunreachable'] = 3;
 $GLOBALS['timelinkchecked'] = time(); // for tests, use eg: time()-(1*60*60) to test fewer, otherwise just check all;
 $GLOBALS['tablename'] = "hub_site_directory";
 $GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` "
-        . "FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY RAND() DESC LIMIT %d"; 
+        . "FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
 //sort sites randomly for more evenly distributed use of curl multi handle buffer - too many sequential wait times hog up the buffer.
 $GLOBALS['sitessofar'] = null;
 $GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `timelinkchecked`<=$timelinkchecked");
@@ -145,6 +145,7 @@ for(;;) {
         curl_close($handle);
         $sitecurlsrunning--;
         unset($sitesrunning[(string)$handle]);
+        echo " [ stat: $curledsofar/$totalsites curls:$sitecurlsrunning/$maxsitecurls buf: ".count($sitebuffer).' ]';
     }
 }
 curl_multi_close($multihandle);
@@ -236,7 +237,7 @@ function fill_site_buffer() {
     if ($runhasfailed==null) $runhasfailed = false;
     if ($sitessofar==null) $sitessofar = 0;
 
-    #echo "\nFilling Buffer with $sitebufferlimit sites starting from id ".$lastsiteid;
+    echo "\nFilling Buffer with $sitebufferlimit sites starting from id ".$lastsiteid;
 
     $sql = sprintf($siteselectorsql, $maximumunreachable, $timelinkchecked, $lastsiteid, $sitebufferlimit);
     $sites = $DB->get_records_sql($sql);    
@@ -386,7 +387,7 @@ function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redire
     $redirects = (strlen($redirects)<4)?str_pad($redirects,5):substr($redirects,0,5);
     //don't pad this.
     $moodlerelease = (strlen($moodlerelease)<24)?str_pad($moodlerelease,24):substr($moodlerelease,0,24);
-    $errormsg = (strlen($errormsg)<70)?str_pad($errormsg,70):substr($errormsg,0,70);
+//    $errormsg = (strlen($errormsg)<70)?str_pad($errormsg,70):substr($errormsg,0,70);
     echo "\n$countstr|$id| $url| $outcome| $score| $fingerprint| $redirects| $errorno| $moodlerelease| $errormsg";
     flush();
 }
