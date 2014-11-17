@@ -61,7 +61,7 @@ $allfailedrecids = $DB->get_fieldset_sql('Select id from {hub_site_directory} r 
 
 $randomrecordids = array();
 
-if (is_null($siteid)) {
+if (is_null($siteid) && $totrecs > 0 && !empty($allfailedrecids)) {
     $id=0;
     while (count($randomrecordids)<$limitnum) {
         while(!in_array($id=rand(0, $totrecs-1), $randomrecordids) && in_array($id,$allfailedrecids)) { //get unique random list of ids.
@@ -195,6 +195,10 @@ echo $OUTPUT->footer();
 function getcoverageimg($totrecs, $randomrecordids, $highlightrecs=false) {
     core_php_time_limit::raise(300);
     $width = 18000; $height = 20; $padding = 5;
+    if ($totrecs == 0) {
+        // Make it work even on an empty hub.
+        $totrecs = 1;
+    }
     $column_width = $width / $totrecs ;
     $im        = imagecreate($width,$height);
     imagesavealpha($im, true);
