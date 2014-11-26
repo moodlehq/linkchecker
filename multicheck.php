@@ -54,7 +54,7 @@ $GLOBALS['maximumunreachable'] = 3;
 $GLOBALS['timelinkchecked'] = time(); // for tests, use eg: time()-(1*60*60) to test fewer, otherwise just check all;
 $GLOBALS['tablename'] = "hub_site_directory";
 $GLOBALS['siteselectorsql'] = "SELECT id, unreachable, name, url,privacy , timeunreachable, score, errormsg, moodlerelease, serverstring, override "
-        . "FROM ".$CFG->prefix.$tablename." WHERE unreachable <= %d AND timelinkchecked <= %d AND id < %d ORDER BY id DESC LIMIT %d";
+        . "FROM ".$CFG->prefix.$tablename." WHERE unreachable <= %d AND timelinkchecked <= %d AND id < %d AND url <> 'https://moodle.org' ORDER BY id DESC LIMIT %d";
 //sort sites randomly for more evenly distributed use of curl multi handle buffer - too many sequential wait times hog up the buffer.
 $GLOBALS['sitessofar'] = null;
 $GLOBALS['totalsites'] = $DB->count_records_select($tablename, "unreachable <= $maximumunreachable AND timelinkchecked <= $timelinkchecked");
