@@ -53,11 +53,11 @@ $GLOBALS['sitebufferlimit'] = 30;
 $GLOBALS['maximumunreachable'] = 3;
 $GLOBALS['timelinkchecked'] = time(); // for tests, use eg: time()-(1*60*60) to test fewer, otherwise just check all;
 $GLOBALS['tablename'] = "hub_site_directory";
-$GLOBALS['siteselectorsql'] = "SELECT `id`,`unreachable`,`name`,`url`,`privacy`, `timeunreachable`, `score`, `errormsg`, `moodlerelease`, `serverstring`, `override` "
-        . "FROM `".$CFG->prefix.$tablename."` WHERE `unreachable`<=%d AND `timelinkchecked`<=%d AND `id`<%d ORDER BY `id` DESC LIMIT %d";
+$GLOBALS['siteselectorsql'] = "SELECT id, unreachable, name, url,privacy , timeunreachable, score, errormsg, moodlerelease, serverstring, override "
+        . "FROM ".$CFG->prefix.$tablename." WHERE unreachable <= %d AND timelinkchecked <= %d AND id < %d AND url <> 'https://moodle.org' ORDER BY id DESC LIMIT %d";
 //sort sites randomly for more evenly distributed use of curl multi handle buffer - too many sequential wait times hog up the buffer.
 $GLOBALS['sitessofar'] = null;
-$GLOBALS['totalsites'] = $DB->count_records_select($tablename, "`unreachable`<=$maximumunreachable AND `timelinkchecked`<=$timelinkchecked");
+$GLOBALS['totalsites'] = $DB->count_records_select($tablename, "unreachable <= $maximumunreachable AND timelinkchecked <= $timelinkchecked");
 $GLOBALS['maxcurltimeout'] = 140;
 $GLOBALS['maxconnectiontimeout'] = 140;
 
@@ -175,6 +175,9 @@ echo "\n\nProcess Complete\nPassed: $sitespassed\tFailed: $sitesfailed\tErrored:
 echo "\nTotal time: ". (microtime(true)-$overallstarttime)."\n\n";
 flush();
 
+/**
+ * Update the site's record in hub_site_directory
+ */
 function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodlerelease=null, $serverstring=null, $fingerprint=null) {
     global $tablename, $DB;
     $updatedsite = new stdClass;
@@ -210,6 +213,10 @@ function update_site(&$site, $score='', $unreachable=0, $errormessage='', $moodl
     return true;
 }
 
+/**
+ * Requeue the site for examination
+ * The site may have responded with a redirect or we need to check a page other than the front page
+ */
 function reinsert_site_into_buffer($site, $newurl) {
     global $maxredirects, $sitebuffer;
     $urlbits = @parse_url($site->url);
@@ -238,6 +245,9 @@ function reinsert_site_into_buffer($site, $newurl) {
     }
 }
 
+/**
+ * Does the cURL response look like a redirection?
+ */
 function check_for_manual_redirect($sitecontent) {
     if (preg_match('#<meta\s+http\-equiv=(\'|")refresh\1\scontent=(\'|")[^\2]+?url=(.*?)\2#si', $sitecontent, $matches)) {
         return $matches[3];
@@ -246,6 +256,9 @@ function check_for_manual_redirect($sitecontent) {
     }
 }
 
+/**
+ * Load a subset of sites from hub_site_directory to examine via cURL
+ **/
 function fill_site_buffer() {
     global $sitebuffer, $sitebufferlimit, $CFG, $DB, $siteselectorsql, $sitessofar, $totalsites, $maximumunreachable, $timelinkchecked;
 
@@ -273,6 +286,7 @@ function fill_site_buffer() {
         $site->manualredirect = 0;
         $sitebuffer[] = $site;
         //update timelinkchecked early (useful when running some multiple linkchecker processes to go thru bunch faster when testing fingerprinting)
+        // Note this update_site() call also resets each sites's unreachable counter to 0.
         update_site($site);
     }
 
@@ -284,6 +298,9 @@ function fill_site_buffer() {
     return true;
 }
 
+/**
+ * Examines the header and html of cURL response to determine whether the response came from a Moodle site
+ */
 function link_checker_test_result(&$site, $handle, $html) {
 
     $head = substr($html, 0, curl_getinfo($handle, CURLINFO_HEADER_SIZE));
@@ -382,6 +399,9 @@ function link_checker_test_result(&$site, $handle, $html) {
     }
 }
 
+/**
+ * Formats the supplied paramters into a pipe separated string and echoes it out.
+ **/
 function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redirects='0', $errorno='', $errormsg='', $moodlerelease='') {
     static $header;
     static $count;
@@ -413,6 +433,10 @@ function writeline($id, $url, $outcome='F', $score='0', $fingerprint='', $redire
     flush();
 }
 
+/**
+ * Initializes a cURL session
+ * @return returns a cURL handle or false if an error occured
+ **/
 function create_handle($url) {
     global $maxredirects, $maxcurltimeout, $maxconnectiontimeout;
     if (trim($url)=='') {
