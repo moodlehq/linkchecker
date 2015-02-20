@@ -23,7 +23,7 @@ function cleanup($signal) {
   exit;
 }
 
-if (file_exists($lockfile)) { 
+if (file_exists($lockfile)) {
   $self = basename(__FILE__);
   $pids = `ps axw |grep $self |grep -v grep |awk '{print \$1}'`;
   $pids = trim($pids);
@@ -65,14 +65,7 @@ $sitespassed = 0;
 $sitesfailed = 0;
 $siteserrored = 0;
 
-$moodleypage = '/login/index.php'; //these should be accessible and constant over time
-
-//todo turn above single check page into an array of pages to crawl deeper into
-$moodleypages = array( //unused !! @todo use this.
-    '/login/index.php',
-    '/lib/womenslib.php', //but this is a redirect page so check for 303 to the wiki pg.
-    'lib/upgrade.txt', //only for pages after certain moodle version (2.x?) - this is however a txt file and not a functioning site page... combine testing this with a live page.
-);
+$moodleypage = 'login/index.php'; // This should be accessible and constant over time.
 
 for(;;) {
 
@@ -138,10 +131,17 @@ for(;;) {
                     // frontpages are heavily modified.. in addition, check one $timelongmoodleypgs page
                     if (!preg_match('#'.$moodleypage.'#', $site->url)) {
                         $oldurl = $site->url;
-                        $outcome = reinsert_site_into_buffer($site, $site->url. $moodleypage);
+
+                        $joiner = '/';
+                        if (substr(trim($site->url), -1) == '/') {
+                            $joiner = '';
+                        }
+                        $newurl = $site->url . $joiner . $moodleypage;
+
+                        $outcome = reinsert_site_into_buffer($site, $newurl);
                         if ($outcome===false) {
                             update_site($site, '', ((int)$site->unreachable+1), 'Max manual redirects exceeded (moodleypage)');
-                            writeline($site->id, $oldurl,'', '', $site->manualredirect, '', 'Maximum manual redirects exceeded : '.$site->url. $moodleypage);
+                            writeline($site->id, $oldurl,'', '', $site->manualredirect, '', 'Maximum manual redirects exceeded : '.$newurl);
                         } else {
                             writeline($site->id, $oldurl,'', '', $site->manualredirect, '', 'Extra page check redirect for '.$site->url);
                         }
@@ -264,8 +264,10 @@ function fill_site_buffer() {
     foreach ($sites as $site) {
         $site->manualredirect = 0;
         $sitebuffer[] = $site;
-        //update timelinkchecked early (useful when running some multiple linkchecker processes to go thru bunch faster when testing fingerprinting)
+        // Update timelinkchecked early.
+        // This is useful when running some multiple linkchecker processes to go faster when testing fingerprinting.
         // Note this update_site() call also resets each sites's unreachable counter to 0.
+        // However the object's in $sitebuffer retain the non-zeroed unreachable counter.
         update_site($site);
     }
 
