@@ -49,6 +49,13 @@ ini_set('display_errors','On');
 
 echo "\n\nStarting...\n";
 
+echo "\n\nResetting 1% of inactive sites for a single recheck...\n\n";
+$sql = 'UPDATE {hub_site_directory}
+        SET unreachable = :maxunreachable1
+        WHERE unreachable > :maxunreachable2 AND RAND() <= 0.01';
+$params = array('maxunreachable1' => LINKCHECKER_MAXIMUMUNREACHABLE, 'maxunreachable2' => LINKCHECKER_MAXIMUMUNREACHABLE);
+$DB->execute($sql, $params);
+
 define_globals();
 
 $maxsitecurls = 20;
