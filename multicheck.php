@@ -264,11 +264,11 @@ function fill_site_buffer() {
     foreach ($sites as $site) {
         $site->manualredirect = 0;
         $sitebuffer[] = $site;
+
         // Update timelinkchecked early.
         // This is useful when running some multiple linkchecker processes to go faster when testing fingerprinting.
-        // Note this update_site() call also resets each sites's unreachable counter to 0.
-        // However the object's in $sitebuffer retain the non-zeroed unreachable counter.
-        update_site($site);
+        $site->timelinkchecked = time();
+        $DB->update_record(LINKCHECKER_TABLENAME, $site);
     }
 
     if ($lastsiteid===$site->id) {
