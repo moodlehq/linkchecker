@@ -109,8 +109,9 @@ for(;;) {
         $curl_error = new stdClass;
         $curl_error = curl_error($handle);
         if (!empty($curl_error)) {
-            update_site($site, -1, ((int)$site->unreachable+1), addslashes(curl_error($handle)));
-            writeline($site->id, $site->url, 'F', '-',curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),curl_errno($handle), curl_error($handle));
+            $curl_error_string = clean_param($curl_error, PARAM_NOTAGS);
+            update_site($site, -1, ((int)$site->unreachable+1), $curl_error_string);
+            writeline($site->id, $site->url, 'F', '-',curl_getinfo($handle, CURLINFO_REDIRECT_COUNT),curl_errno($handle), $curl_error_string);
             $siteserrored++;
         } else {
             $manualredirect = check_for_manual_redirect($sitecontent);
