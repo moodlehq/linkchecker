@@ -71,6 +71,12 @@ for(;;) {
 
     while ($sitecurlsrunning<$maxsitecurls && count($sitebuffer)>0) {
         $site = array_shift($sitebuffer);
+        if (is_bogon($site->url)) {
+            update_site($site, -1, ((int)$site->unreachable+1), addslashes("Non-routable IP found - Didnt attempt curl"));
+            writeline($site->id, $site->url, 'F', '-','0','0', "Non-routable IP found - Didnt attempt curl");
+            $siteserrored++;
+            continue;
+        }
         $handle = create_handle($site->url);
         if ($handle===false) {
             update_site($site, -1, ((int)$site->unreachable+1), addslashes("Malformed URL - Didnt attempt curl"));
