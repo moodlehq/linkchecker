@@ -26,6 +26,21 @@ class local_linkchecker_lib_testcase extends advanced_testcase
         $this->assertEquals('http://example5.com', check_for_manual_redirect('<meta http-equiv="refresh" content="0;URL=http://example5.com">'));
     }
 
+    public function test_is_bogon() {
+        // Valid addresses.
+        $this->assertFalse(is_bogon('http://moodle.org'));
+        $this->assertFalse(is_bogon('http://moodle.com/testing'));
+        $this->assertFalse(is_bogon('http://141.101.113.179')); // Moodle.org.
+        $this->assertFalse(is_bogon('https://210.187.22.153')); // Google.com
+
+        // Bogons.
+        $this->assertTrue(is_bogon('http://0.0.0.0'));
+        $this->assertTrue(is_bogon('http://127.0.0.2'));
+        $this->assertTrue(is_bogon('http://10.255.255.10/moodle'));
+        $this->assertTrue(is_bogon('https://172.26.0.12'));
+        $this->assertTrue(is_bogon('http://192.168.10.190:8090'));
+    }
+
     public function test_create_handle() {
 
         $this->assertEquals(false, create_handle(''));

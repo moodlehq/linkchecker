@@ -33,6 +33,54 @@ function check_for_manual_redirect($sitecontent) {
 }
 
 /**
+ * Is the supplied URL a bogon IP? Does it resolve to a bogon IP?
+ * https://en.wikipedia.org/wiki/Bogon_filtering
+ * @return True if the supplied url is a bogon.
+ */
+function is_bogon($url) {
+    $host = parse_url($url, PHP_URL_HOST);
+    $records = dns_get_record($host, DNS_A + DNS_AAAA);
+    $a_records=[];
+    $aaaa_records=[];
+    $failure=0;
+    if (empty($records)) return 1;
+    foreach ($records as $k => $r) {
+        switch ($r['type']) {
+            case "A":
+                $addr = $r['ip'];
+                $addr = explode('.', $addr);
+                $addr = array_reverse ($addr, true);
+                $revaddr = '';
+                foreach ($addr as $kk => $v) $revaddr.=$v.'.';
+                $a_records[] = $revaddr;
+                break;
+            case "AAAA":
+                $addr = $r['ipv6'];
+                $addr = str_replace(':', '', $addr);
+                $addr = str_split($addr);
+                $addr = array_reverse ($addr, true);
+                $revaddr = '';
+                foreach ($addr as $kk => $v) $revaddr.=$v.'.';
+                $aaaa_records[] = $revaddr;
+                break;
+            default:
+                break;
+        }
+    }
+    foreach ($a_records as $k => $record) {
+        $response = dns_get_record($record.'v4.fullbogons.cymru.com', DNS_A);
+        if (empty($response)) continue;
+        if ($response[0]['ip'] == '127.0.0.2') $failure++;
+    }
+    foreach ($aaaa_records as $k => $record) {
+        $response = dns_get_record($record.'v6.fullbogons.cymru.com', DNS_A);
+        if (empty($response)) continue;
+        if ($response[0]['ip'] == '127.0.0.2') $failure++;
+    }
+    return $failure > 0;
+}
+
+/**
  * Initializes a cURL session
  * @return returns a cURL handle or false if an error occured
  **/
