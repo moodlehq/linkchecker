@@ -40,10 +40,13 @@ function check_for_manual_redirect($sitecontent) {
 function is_bogon($url) {
     $host = parse_url($url, PHP_URL_HOST);
     $records = dns_get_record($host, DNS_A + DNS_AAAA);
+    if (empty($records)) {
+        // No dns record but not a bogon.
+        return 0;
+    }
     $a_records=[];
     $aaaa_records=[];
     $failure=0;
-    if (empty($records)) return 1;
     foreach ($records as $k => $r) {
         switch ($r['type']) {
             case "A":

@@ -32,6 +32,7 @@ class local_linkchecker_lib_testcase extends advanced_testcase
         $this->assertFalse(is_bogon('http://moodle.com/testing'));
         $this->assertFalse(is_bogon('http://141.101.113.179')); // Moodle.org.
         $this->assertFalse(is_bogon('https://210.187.22.153')); // Google.com
+        $this->assertFalse(is_bogon('http://doesntexitXXXXYYYYZZZZ.com')); // Not a real site but not a bogon.
 
         // Bogons.
         $this->assertTrue(is_bogon('http://0.0.0.0'));
