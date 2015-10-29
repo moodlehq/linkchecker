@@ -19,4 +19,6 @@ $plugin->version  = 2015051300;   // The (date) version of this module + 2 extra
 $plugin->requires = 2014111005;   // Requires at least Moodle 2.8.5  (Build: 20150505)
                                   // The required version was somewhat arbitrarily chosen when adding version.php
                                   // local_linkchecker may in fact work fine with earlier versions of Moodle.
+$plugin->component = 'local_linkchecker'; // Full name of the plugin (used for diagnostics).
+$plugin->maturity  = MATURITY_STABLE;
 $plugin->cron     = 0;
